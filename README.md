@@ -23,4 +23,4 @@ This repository contains a Jupyter notebook that performs probabilistic seismic 
 Clone the repository to your local machine:
 
 ```bash
-git clone https://github.com/your-username/your-repo-name.git
+git clone [https://github.com/your-username/your-repo-name.git](https://github.com/ZeinabFarah/Probabilistic-Seismic-Hazard-Analysis-for-Distributed-Lifelines.git)https://github.com/ZeinabFarah/Probabilistic-Seismic-Hazard-Analysis-for-Distributed-Lifelines.git
