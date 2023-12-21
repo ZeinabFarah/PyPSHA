@@ -25,4 +25,6 @@ Clone the repository to your local machine:
 ```bash
 git clone https://github.com/ZeinabFarah/PSHA.git
 ```
-
+## Acknowledgments
+The ground motion modeling is performed using the [pygmm](https://pythonhosted.org/pygmm/) library.
+Magnitude-frequency distribution is currently limited to the Gutenburg-Richter law implementation.
