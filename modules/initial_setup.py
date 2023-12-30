@@ -90,22 +90,28 @@ class InitialSetup:
 
     def extract_source_data(self):
         """Extracts parameters from each source in source_data."""
-        self.m_min = {name: data["M_min"] for name, data in self.source_data.items()}
-        self.m_max = {name: data["M_max"] for name, data in self.source_data.items()}
-        self.nu = {name: data["nu"] for name, data in self.source_data.items()}
+        self.source_m_min = {name: data["M_min"] for name, data in self.source_data.items()}
+        self.source_m_max = {name: data["M_max"] for name, data in self.source_data.items()}
+        self.source_nu = {name: data["nu"] for name, data in self.source_data.items()}
+        self.source_lat = {name: data["lat"] for name, data in self.source_data.items()}
+        self.source_lon = {name: data["lon"] for name, data in self.source_data.items()}
+        self.source_depth = {name: data["depth"] for name, data in self.source_data.items()}
+        self.source_strike = {name: data["strike"] for name, data in self.source_data.items()}
+        self.source_dip = {name: data["dip"] for name, data in self.source_data.items()}
+        self.source_mechanism = {name: data["mechanism"] for name, data in self.source_data.items()}
     
         # Determining the overall min and max magnitudes
-        self.m_min_min = max(self.m_min.values())
-        self.m_max_max = min(self.m_max.values())
+        self.m_min_min = max(self.source_m_min.values())
+        self.m_max_max = min(self.source_m_max.values())
 
     def extract_site_data(self):
         """Extracts parameters from each site in site_data"""
-        self.id  = self.site_data['id']
-        self.lat = self.site_data['latitude']
-        self.lon = self.site_data['longitude']
-        self.depth = self.site_data['depth']
-        self.vs30 = self.site_data['vs30']
-        self.condition = self.site_data['condition']
+        self.site_id  = self.site_data['id']
+        self.site_lat = self.site_data['latitude']
+        self.site_lon = self.site_data['longitude']
+        self.site_depth = self.site_data['depth']
+        self.site_vs30 = self.site_data['vs30']
+        self.site_condition = self.site_data['condition']
 
 
 

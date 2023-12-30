@@ -1,5 +1,5 @@
-from seismic_distance_calculator import SeismicDistanceCalculator
-from magnitude_frequency_distribution import MagnitudeFrequencyDistribution
+from modules.seismic_distance_calculator import SeismicDistanceCalculator
+from modules.magnitude_frequency_distribution import MagnitudeFrequencyDistribution
 import numpy as np
 import pandas as pd
 import pygmm
@@ -42,23 +42,23 @@ class EarthquakeGenerator:
         Magnitudes = np.linspace(self.setup.m_min_min, self.setup.m_max_max, self.num_scenarios)
 
         probabilities = {
-            source_name: self.magnitude_frequency_distribution(Magnitudes, self.setup.m_min[source_name], self.setup.m_max[source_name])[0]
+            source_name: self.magnitude_frequency_distribution(Magnitudes, self.setup.source_m_min[source_name], self.setup.source_m_max[source_name])[0]
             for source_name in self.setup.source_data
         }
     
-        prob_of_magnitudes = np.sum([self.setup.nu[source_name] * probabilities[source_name] for source_name in self.setup.source_data], axis=0)
+        prob_of_magnitudes = np.sum([self.setup.source_nu[source_name] * probabilities[source_name] for source_name in self.setup.source_data], axis=0)
         prob_of_magnitudes /= np.sum(prob_of_magnitudes)
     
         magnitudes = np.random.choice(Magnitudes, size=self.num_scenarios, p=prob_of_magnitudes)
     
         prob_of_magnitudes_given_source = {
-            source_name: self.magnitude_frequency_distribution(magnitudes, self.setup.m_min[source_name], self.setup.m_max[source_name])[0]
+            source_name: self.magnitude_frequency_distribution(magnitudes, self.setup.source_m_min[source_name], self.setup.source_m_max[source_name])[0]
             for source_name in self.setup.source_data
         }
 
         prob_of_sources_given_magnitude = np.transpose([
-            self.setup.nu[source_name] * prob_of_magnitudes_given_source[source_name] / 
-            sum(self.setup.nu[source_name] * prob_of_magnitudes_given_source[source_name] for source_name in self.setup.source_data)
+            self.setup.source_nu[source_name] * prob_of_magnitudes_given_source[source_name] / 
+            sum(self.setup.source_nu[source_name] * prob_of_magnitudes_given_source[source_name] for source_name in self.setup.source_data)
             for source_name in self.setup.source_data
         ])
     
@@ -78,7 +78,7 @@ class EarthquakeGenerator:
         median_ground_motion, intra_event_std, inter_event_std = self.calculate_ground_motion_parameters()
         
         inter_event_residual = {}     
-        for j, site_id in enumerate(self.setup.id):
+        for j, site_id in enumerate(self.setup.site_id):
             # Simulate Eta_1 from a univariate normal distribution with zero mean and unit std.
             Eta_1 = np.random.normal(0, 1, self.num_scenarios)
             
@@ -135,20 +135,20 @@ class EarthquakeGenerator:
                 
             return b
 
-        b = determine_range_parameter_by_ground_motion_type(self.setup.vs30, self.ground_motion_type, self.period)
+        b = determine_range_parameter_by_ground_motion_type(self.setup.site_vs30, self.ground_motion_type, self.period)
 
         corr_matrix = np.zeros((self.setup.num_sites, self.setup.num_sites))
         intra_event_residual = {}
 
         for i in range(self.num_scenarios):
-            for j, site_id1 in enumerate(self.setup.id):
-                for k, site_id2 in enumerate(self.setup.id[j:]):
-                    dist = SeismicDistanceCalculator.calculate_haversine_distance(self.setup.lat[j], self.setup.lon[j], self.setup.lat[j + k], self.setup.lon[j + k])
+            for j, site_id1 in enumerate(self.setup.site_id):
+                for k, site_id2 in enumerate(self.setup.site_id[j:]):
+                    dist = SeismicDistanceCalculator.calculate_haversine_distance(self.setup.site_lat[j], self.setup.site_lon[j], self.setup.site_lat[j + k], self.setup.site_lon[j + k])
                     corr = np.exp(-3*dist/b)
                     corr_matrix[j, j + k] = corr_matrix[j + k, j] = corr
 
             epsilon = np.random.multivariate_normal(np.zeros(self.setup.num_sites), corr_matrix)
-            for j, site_id in enumerate(self.setup.id):
+            for j, site_id in enumerate(self.setup.site_id):
                 intra_event_residual[site_id, i] = epsilon[j]
     
         return intra_event_residual
@@ -175,12 +175,12 @@ class EarthquakeGenerator:
         
         median_ground_motion, intra_event_std, inter_event_std = {}, {}, {} 
         
-        for j, site_id in enumerate(self.setup.id):
+        for j, site_id in enumerate(self.setup.site_id):
             for i, M in enumerate(magnitudes):
                 source_info   = self.setup.source_data[source[i]]
     
-                site_loc   = (self.setup.lon[j], self.setup.lat[j], self.setup.depth[j])
-                source_loc = (source_info['lon'], source_info['lat'], source_info['depth'])
+                site_loc   = (self.setup.site_lat[j], self.setup.site_lon[j], self.setup.site_depth[j])
+                source_loc = (source_info['lat'], source_info['lon'], source_info['depth'])
     
                 rupture_distance      = SeismicDistanceCalculator.calculate_rupture_distance(site_loc, source_loc, source_info['strike'], source_info['dip'])
                 joyner_boore_distance = SeismicDistanceCalculator.calculate_joyner_boore_distance(site_loc, source_loc)
@@ -189,7 +189,7 @@ class EarthquakeGenerator:
                 model_class = getattr(pygmm, self.ground_motion_equation_model)
                 gm_index    = _get_gm_indices(model_class, self.ground_motion_type)
                 
-                scenario = pygmm.Scenario(mag=M, dist_rup=rupture_distance, dist_jb=joyner_boore_distance, dist_x=horizontal_distance, site_cond=self.setup.condition[j], v_s30=self.setup.vs30[j] , dip=source_info['dip'], mechanism=source_info['mechanism'])
+                scenario = pygmm.Scenario(mag=M, dist_rup=rupture_distance, dist_jb=joyner_boore_distance, dist_x=horizontal_distance, site_cond=self.setup.site_condition[j], v_s30=self.setup.site_vs30[j] , dip=source_info['dip'], mechanism=source_info['mechanism'])
                 model    = model_class(scenario)
     
                 if self.ground_motion_type == 'PGA':
@@ -221,7 +221,7 @@ class EarthquakeGenerator:
 
         intensity_measures = {}
         for i, M in enumerate(magnitudes):
-            for j, site_id in enumerate(self.setup.id):
+            for j, site_id in enumerate(self.setup.site_id):
                 im_value = np.exp(np.log(median_ground_motion[site_id, i]) +
                                   intra_event_std[site_id, i] * intra_event_residual[site_id, i] +
                                   inter_event_std[site_id, i] * inter_event_residual[site_id, i])
