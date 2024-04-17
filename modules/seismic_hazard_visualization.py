@@ -255,7 +255,7 @@ class SeismicHazardVisualization:
         plt.legend()
         plt.show()
 
-    def plot_tract_intensity_map(self, exceedance_probability, shape_file_path, COUNTYFP):
+    def plot_tract_intensity_map(self, exceedance_probability, census_file_path):
         """
         Plot a map representing seismic hazard with intensity measure values averaged for each census tract.
 
@@ -263,7 +263,7 @@ class SeismicHazardVisualization:
         -----------
         exceedance_probability : float
             The exceedance probability for which to generate the contour map.
-        shape_file_path : str
+        census_file_path : str
             The path to the shapefile for North America.
         """
         # Prepare the intensity measure data
@@ -274,12 +274,9 @@ class SeismicHazardVisualization:
         points_df = pd.DataFrame({'intensity_measure': ims, 'geometry': [Point(lon, lat) for lon, lat in zip(lons, lats)]})
         points_gdf = gpd.GeoDataFrame(points_df, geometry='geometry')
 
-        # Ensure points_gdf has the same CRS as the shapefile data
-        shapefile_gdf = gpd.read_file(shape_file_path)
-        points_gdf.crs = shapefile_gdf.crs
-
-        # Filter the shapefile to include only desired County
-        tracts_gdf = shapefile_gdf[shapefile_gdf['COUNTYFP'] == COUNTYFP]
+        # Read the shapefile and ensure points_gdf has the same CRS as the shapefile data
+        tracts_gdf = gpd.read_file(census_file_path)
+        points_gdf.crs = tracts_gdf.crs
 
         # Perform a spatial join between the points and the tracts
         tracts_with_ims = gpd.sjoin(tracts_gdf, points_gdf, how="inner", predicate='contains')
