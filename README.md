@@ -11,7 +11,7 @@ This repository contains a Jupyter notebook that performs probabilistic seismic 
 6. **Intensity Measure (IM)**: Compute the intensity measure values for the earthquake scenarios.
 
 ### Ground Motion Models Supported
-- BooreStewartSeyhanAtkinson2014
+- AbrahamsonSilvaKamai2014
 
 ### Intensity Types Supported
 - PGA (Peak Ground Acceleration) in units of g (gravity)
