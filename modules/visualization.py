@@ -148,77 +148,36 @@ class Visualization:
 
         # Generate a grid to interpolate onto
         grid_lons, grid_lats = np.meshgrid(np.linspace(min(lons), max(lons), 100),
-                                           np.linspace(min(lats), max(lats), 100))
+                                          np.linspace(min(lats), max(lats), 100))
 
         # Interpolate the data onto the grid
         grid_ims = griddata((lons, lats), ims, (grid_lons, grid_lats), method='cubic')
 
+        # Determine unit based on ground motion type
+        if ground_motion_type == 'PGA':
+            unit = 'g'
+        elif ground_motion_type == 'PGV':
+            unit = 'cm/s'
+        else:
+            unit = ''  # Default if neither PGA nor PGV
+
         # Create the contour plot
         plt.figure(figsize=(10, 6))
         contour = plt.contourf(grid_lons, grid_lats, grid_ims, levels=100, cmap='viridis')
-        colorbar = plt.colorbar(contour, label=f'{ground_motion_type} ({exceedance_probability*100:.0f}% Exceedance)')
+        colorbar = plt.colorbar(contour, label=f'{ground_motion_type} [{unit}]')
 
         # Optional: plot seismic sources if needed
         for source_id, source_info in self.setup.source_data.items():
             plt.plot(source_info['lon'], source_info['lat'], '*', color='yellow', markersize=15, label=f'{source_id}')
 
         # Annotations and titles
-        plt.title(f"Seismic Hazard Contour Map - {self.return_period} years")
+        plt.title(f"Seismic Hazard Map - {self.return_period} years, {exceedance_probability*100}% Exceedance Probability")
         plt.xlabel('Longitude')
         plt.ylabel('Latitude')
         plt.legend()
         plt.show()
 
-    def generate_continuous_earthquake_geotiff(self, exceedance_probability, ground_motion_type, grid_resolution, geotiff_file_path):
-        """
-        Generates a continuous raster GeoTIFF representing earthquake exceedance values over an area,
-        based on interpolation of exceedance data at specific sites.
-
-        Parameters:
-        -----------
-        exceedance_probability : float
-            The probability threshold for selecting sites, expressed as a decimal (e.g., 0.1 for 10% chance).
-        grid_resolution : float, optional
-            The resolution of the grid in degrees, determining the spacing of points in the mesh.
-            Default is 0.01 degrees.
-
-        Returns:
-        --------
-        None
-            Creates a GeoTIFF file named 'continuous_intensity_measures.tif' with the interpolated raster data.
-        """
-
-        data = self.prepare_im_data(exceedance_probability, ground_motion_type)
-        lons, lats, ims = zip(*data)
-
-        # Create a mesh grid covering the entire area of interest
-        xi = np.arange(min(lons), max(lons), grid_resolution)
-        yi = np.arange(min(lats), max(lats), grid_resolution)
-        X, Y = np.meshgrid(xi, yi)
-
-        # Interpolate intensity measures onto the mesh grid
-        Z = griddata((lons, lats), ims, (X, Y), method='cubic')
-
-        # Define the transformation for the GeoTIFF
-        west, north = X.min(), Y.max()
-        pixel_width, pixel_height = grid_resolution, grid_resolution
-        transform = from_origin(west, north, pixel_width, -pixel_height)
-
-        # Write the interpolated grid to a GeoTIFF file
-        with rasterio.open(
-            f'{geotiff_file_path}/continuous_intensity_measures.tif',
-            'w',
-            driver='GTiff',
-            height=Z.shape[0],
-            width=Z.shape[1],
-            count=1,
-            dtype=Z.dtype,
-            crs='+proj=latlong',
-            transform=transform,
-        ) as dst:
-            dst.write(Z, 1)
-
-    def plot_tract_intensity_map(self, exceedance_probability, ground_motion_type, census_file_path):
+    def plot_tract_intensity_map(self, census_file_path, exceedance_probability, ground_motion_type):
         """
         Plot a map representing seismic hazard with intensity measure values averaged for each census tract.
 
@@ -226,6 +185,8 @@ class Visualization:
         -----------
         exceedance_probability : float
             The exceedance probability for which to generate the contour map.
+        ground_motion_type : str
+            The type of ground motion ('PGA' or 'PGV') used for data preparation.
         census_file_path : str
             The path to the shapefile for North America.
         """
@@ -250,13 +211,21 @@ class Visualization:
         # Merge this back with the original tracts data
         tracts_gdf = tracts_gdf.merge(tract_intensity, on='TRACTCE', how='left')
 
+        # Determine unit based on ground motion type
+        if ground_motion_type == 'PGA':
+            unit = 'g'
+        elif ground_motion_type == 'PGV':
+            unit = 'cm/s'
+        else:
+            unit = ''  # Default if neither PGA nor PGV
+
         # Plot the tracts colored by the mean intensity measure
         fig, ax = plt.subplots(1, 1, figsize=(10, 6))
-        tracts_gdf.plot(column='intensity_measure', ax=ax, legend=True, cmap='viridis', missing_kwds={
+        tracts_gdf.plot(column='intensity_measure', ax=ax, legend=True, cmap='viridis', legend_kwds={'label': f'{ground_motion_type} ({unit})'}, missing_kwds={
             "color": "lightgrey",
             "edgecolor": "red",
             "hatch": "///",
-            "label": "Missing values",
+            "label": "Missing values"
         })
 
         # Plot the seismic sources as yellow stars
@@ -269,3 +238,60 @@ class Visualization:
         plt.ylabel('Latitude')
         plt.legend()
         plt.show()
+
+    def generate_continuous_earthquake_geotiff(self, exceedance_probability, ground_motion_type, grid_resolution, geotiff_file_path):
+        """
+        Generates a continuous raster GeoTIFF representing earthquake exceedance values over an area,
+        based on interpolation of exceedance data at specific sites.
+
+        Parameters:
+        -----------
+        exceedance_probability : float
+            The probability threshold for selecting sites, expressed as a decimal (e.g., 0.1 for 10% chance).
+        ground_motion_type : str
+            The type of ground motion ('PGA' or 'PGV') for which data is prepared.
+        grid_resolution : float
+            The resolution of the grid in degrees, determining the spacing of points in the mesh.
+        geotiff_file_path : str
+            The directory path where the GeoTIFF file will be saved.
+
+        Returns:
+        --------
+        None
+            Creates a GeoTIFF file with the interpolated raster data.
+        """
+
+        # Prepare intensity measure data
+        data = self.prepare_im_data(exceedance_probability, ground_motion_type)
+        lons, lats, ims = zip(*data)
+
+        # Create a mesh grid covering the entire area of interest
+        xi = np.arange(min(lons), max(lons), grid_resolution)
+        yi = np.arange(min(lats), max(lats), grid_resolution)
+        X, Y = np.meshgrid(xi, yi)
+
+        # Interpolate intensity measures onto the mesh grid
+        Z = griddata((lons, lats), ims, (X, Y), method='cubic')
+
+        # Define the transformation for the GeoTIFF
+        west, north = X.min(), Y.max()
+        pixel_width, pixel_height = grid_resolution, -grid_resolution 
+        transform = from_origin(west, north, pixel_width, pixel_height)
+
+        # Write the interpolated grid to a GeoTIFF file
+        file_name = f'Continuous_{ground_motion_type}.tif'
+        file_path = f'{geotiff_file_path}/{file_name}'
+        with rasterio.open(
+            file_path,
+            'w',
+            driver='GTiff',
+            height=Z.shape[0],
+            width=Z.shape[1],
+            count=1,
+            dtype=str(Z.dtype),
+            crs='+proj=latlong',
+            transform=transform,
+        ) as dst:
+            dst.write(Z, 1)
+
+        print(f'GeoTIFF file created at: {file_path}')
